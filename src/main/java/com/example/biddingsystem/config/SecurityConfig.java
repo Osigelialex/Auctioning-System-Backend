@@ -20,8 +20,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.util.Arrays;
+import java.util.List;
 
 @Controller
 @EnableWebSecurity
@@ -41,6 +47,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(req->req
                         .requestMatchers(HttpMethod.GET, "/ping").permitAll()
@@ -61,7 +68,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/users").hasAuthority("ADMIN")
                         .requestMatchers("/api/v1/dashboard").hasAuthority("ADMIN")
                         .requestMatchers("/api/v1/bids/all").hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/v1/bids/place").hasAuthority("BUYER")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/bids/place/**").hasAuthority("BUYER") // Fixed path pattern
                         .requestMatchers(HttpMethod.GET, "/api/v1/bids/list/**").permitAll()
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/bids/close/**")
                         .hasAnyAuthority("SELLER", "ADMIN")
@@ -88,14 +95,30 @@ public class SecurityConfig {
     }
 
     @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("https://bidzbuddy.vercel.app"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    // Using WebMvcConfigurer as a fallback for non-security related CORS
+    @Bean
     public WebMvcConfigurer corsConfigurer() {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(@NonNull CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH")
-                        .allowedOrigins("https://bidzbuddy.vercel.app", "*")
-                        .allowedHeaders("*");
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+                        .allowedOrigins("https://bidzbuddy.vercel.app")
+                        .allowedHeaders("*")
+                        .allowCredentials(true);
             }
         };
     }
@@ -106,7 +129,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    private static PasswordEncoder passwordEncoder() {
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 }
