@@ -80,23 +80,7 @@ public class BiddingServiceImpl implements BiddingService {
             throw new ResourceNotFoundException("Product not found");
         }
 
-        Product product = productOptional.get();
-        if (product.isBiddingClosed()) {
-            throw new ValidationException("Bidding is closed for this product");
-        }
-
-        // the first user to bid on a product can bid the minimum amount otherwise it is not allowed
-  
-        if (bidDto.getBidAmount().equals(product.getMinimumBid()) &&
-                !product.getMinimumBid().equals(product.getCurrentBid())) {
-            throw new ValidationException("Bid amount must be greater than " + product.getCurrentBid());
-        }
-
-        if (bidDto.getBidAmount() <= product.getCurrentBid()) {
-            throw new ValidationException("Bid amount must be greater than " + product.getCurrentBid());
-        }
-
-        product.setCurrentBid(bidDto.getBidAmount());
+        Product product = getProduct(bidDto, productOptional);
         productRepository.save(product);
 
         Bid bid = new Bid();
@@ -120,6 +104,27 @@ public class BiddingServiceImpl implements BiddingService {
         // notify the seller that a new bid has been placed on their product
         notificationService.sendNotification("🎉 A new bid has been placed on " + product.getName() + " by " + previousBids.get(0).getBidder().getUsername(),
                 product.getSeller().getId());
+    }
+
+    private static Product getProduct(BidDto bidDto, Optional<Product> productOptional) {
+        Product product = productOptional.get();
+        if (product.isBiddingClosed()) {
+            throw new ValidationException("Bidding is closed for this product");
+        }
+
+        // the first user to bid on a product can bid the minimum amount otherwise it is not allowed
+
+        if (bidDto.getBidAmount().equals(product.getMinimumBid()) &&
+                !product.getMinimumBid().equals(product.getCurrentBid())) {
+            throw new ValidationException("Bid amount must be greater than " + product.getCurrentBid());
+        }
+
+        if (bidDto.getBidAmount() <= product.getCurrentBid()) {
+            throw new ValidationException("Bid amount must be greater than " + product.getCurrentBid());
+        }
+
+        product.setCurrentBid(bidDto.getBidAmount());
+        return product;
     }
 
     @Override
@@ -208,7 +213,7 @@ public class BiddingServiceImpl implements BiddingService {
             return;
         }
 
-        Bid winningBid = biddingList.getFirst();
+        Bid winningBid = biddingList.get(0);
         UserEntity winner = winningBid.getBidder();
 
         winningBid.setIsWinningBid(true);
