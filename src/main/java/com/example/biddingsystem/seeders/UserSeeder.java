@@ -26,7 +26,7 @@ public class UserSeeder implements CommandLineRunner {
     public void seedUser() {
         logger.info("Seeding user data...");
 
-        if (userRepository.count() <= 1) {
+        if (userRepository.findByEmail("admin@gmail.com").isEmpty()) {
             UserEntity adminUser = new UserEntity();
             adminUser.setEmail("admin@gmail.com");
             adminUser.setIsEnabled(true);
